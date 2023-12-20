@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<script>
+	"use strict";
+
+	function calc() {
+		document.getElementById("result").innerHTML = getResult();
+	}
+
+	function getResult() {
+		const list = input.split("\n").map(line => line.split(" -> "));
+
+		let modules = {};
+		const outputs = list.map(line => line[1].split(", "));
+
+		list.forEach(line => {
+			const name = line[0].match(/\w+/gm)[0];
+			const type = line[0].match(/\w+|&|%/gm)[0];
+			const output = line[1].split(", ");
+			const include = outputs.filter(line => line.indexOf(name) >= 0).length;
+			const memory = {};
+
+			if (type == "&") {
+				list.forEach(row => {
+					if (row[1].split(", ").indexOf(name) >= 0) {
+						memory[row[0].match(/\w+/gm)[0]] = "low";
+					}
+				});
+			}
+
+			modules[name] = {	id: name,
+								type: type,
+								pulse: "low",
+								output: output,
+								memory: memory	};
+		});
+
+		let lowPulses = 0;
+		let highPulses = 0;
+
+		const firstHigh = {"bm": 0, "cl": 0, "tn": 0, "dr": 0};
+
+		for (let n = 0; n < 5000; ++n) {
+			let queue = [modules["broadcaster"]];
+
+			++lowPulses;
+
+			while (queue.length > 0) {
+				const curModule = queue.shift();
+				const curName = curModule.id;
+
+				curModule.output.forEach(name => {
+					if (curModule.pulse == "low") {
+						++lowPulses;
+					} else {
+						++highPulses;
+					}
+
+					if (modules[name] != undefined) {
+						const nextModule = modules[name];
+
+						if (nextModule.type == "%") {
+							if (curModule.pulse == "low") {
+								nextModule.pulse = nextModule.pulse == "low" ? "high" : "low";
+								queue.push(nextModule);
+							}
+						} else if (nextModule.type == "&") {
+							nextModule.memory[curName] = curModule.pulse;
+
+							if (Object.keys(nextModule.memory).length > 1) {
+								if (Object.values(nextModule.memory).every(v => v == "high")) {
+									nextModule.pulse = "low";
+								} else {
+									nextModule.pulse = "high";
+								}
+							} else {
+								nextModule.pulse = nextModule.memory[curName] == "low" ? "high" : "low";
+							}
+
+							queue.push(nextModule);
+						}
+					}
+				});
+
+				if (curName == "bm" && curModule.pulse == "high" && firstHigh["bm"] == 0) {
+					firstHigh[curName] = n + 1;
+				}
+
+				if (curName == "cl" && curModule.pulse == "high") {
+					firstHigh[curName] = n + 1;
+				}
+
+				if (curName == "tn" && curModule.pulse == "high") {
+					firstHigh[curName] = n + 1;
+				}
+
+				if (curName == "dr" && curModule.pulse == "high") {
+					firstHigh[curName] = n + 1;
+				}
+			}
+		}
+
+		let part1 = lowPulses * highPulses;
+
+		let part2 = getLCM(Object.values(firstHigh));
+
+		return part1 + ", " + part2;
+	}
+
+	function getLCM(arr) {
+		const gcd = (x, y) => (!y ? x : gcd(y, x % y));
+		const lcm = (x, y) => (x * y) / gcd(x, y);
+
+		return arr.reduce((a, b) => lcm(a, b));
+	}
+
+const test = `broadcaster -> a
+%a -> inv, con
+&inv -> b
+%b -> con
+&con -> output`;
+
+const input = `&ds -> qg, db, bm, ft, jk, qs, dz
+%cj -> pg
+%xz -> sx, ds
+%kd -> cs, jg
+%jk -> ds, qs
+%nx -> qr
+&dt -> bx, mg, qb, cl, zb
+%vx -> bd
+%pz -> rv
+%ft -> dz
+%gz -> dt, dx
+%ng -> ft, ds
+%sh -> kn, cs
+%kn -> jc, cs
+%qg -> ls
+%sb -> lp, cs
+%dz -> fg
+%dc -> bd, nx
+&cs -> lp, jg, sb, jc, dr
+%tr -> bx, dt
+%mg -> fj, dt
+%sx -> ds, lm
+%bx -> qb
+%dx -> bv, dt
+%jc -> zf
+broadcaster -> sb, dc, jk, mg
+&bd -> nx, pz, dc, qr, cj, df, tn
+%ll -> zb, dt
+%fg -> ds, xz
+%jg -> bj
+&bm -> vr
+%ls -> ds, ng
+%qs -> db
+%bv -> bs, dt
+%gq -> bd, vx
+%db -> qg
+%zf -> lh, cs
+%pg -> df, bd
+%bs -> dt
+%lm -> ds
+%df -> rs
+&cl -> vr
+%qm -> dt, ll
+&vr -> rx
+%fp -> bk, cs
+%qr -> pz
+%mp -> cj, bd
+&tn -> vr
+%bj -> cs, fp
+%rs -> gq, bd
+%qb -> qm
+%zb -> gz
+%bk -> cs
+&dr -> vr
+%lp -> sh
+%fj -> dt, tr
+%rv -> bd, mp
+%lh -> cs, kd`;
+
+</script>
+</head>
+<body onload="calc()">
+<div id="result"></div>
+</body>
+</html>
